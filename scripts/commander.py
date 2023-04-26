@@ -9,6 +9,7 @@ class Commander():
 
     def __init__(self, _config_file, _name):
 
+        # Create the robot based on the config file (handled motor_driver.py)
         self.bot = Robot(_config_file, name=_name)
         self.bot_config_file = {}
         self.config = {}
@@ -23,15 +24,16 @@ class Commander():
         self.motor_position_publisher = rospy.Publisher("blossom/motors/current", MotorArray, queue_size=1)
         rospy.init_node('motor_driver', anonymous=True)
 
-        self.rate = rospy.Rate(10) # 1hz
+        self.rate = rospy.Rate(10) # 10hz
 
+    # Keep the commander alive
     def main_loop(self):
 
         while not rospy.is_shutdown():
-
             self.get_motor_positions()
             self.rate.sleep()
 
+    # Get the list of motors (from the config)
     def get_motors(self):
         m_list = []
         for m in self.bot_config_file["motors"]:
@@ -40,12 +42,15 @@ class Commander():
         self.motor_list = m_list
         return m_list
 
+    # Get the motor limits (from the config)
     def get_limits(self, _name):
         return self.bot_config_file["motors"][_name]["angle_limit"]
 
+    # Get the motor offset (from the config)
     def get_offset(self, _name):
         return self.bot_config_file["motors"][_name]["offset"]    
 
+    # Generate a dict based on the config
     def generate_config_dict(self):
 
         m_list = self.get_motors()
@@ -56,11 +61,12 @@ class Commander():
             
         return m_dict
 
+    # Set the motor based on a dict
     def set_motors(self, move_dict):
        
+       # Loop through the motors and set them to the goal position, check the limits
         for m in move_dict:
             val = move_dict[m]
-            
             # Check limits:
             if val < self.config[m]["angle_limit"][0]:
                 move_dict[m] = self.config[m]["angle_limit"][0]
@@ -72,8 +78,10 @@ class Commander():
             # Check offset:
             move_dict[m] = move_dict[m] + self.config[m]["offset"]
         
+        # Send the command to the motors, no delay, don't wait
         self.bot.goto_position(move_dict, 0, False)
 
+    # Called on Msg, create a dict and send it to the motors:
     def motor_callback(self, data):
         rospy.loginfo(rospy.get_caller_id() + "I heard %s", data.motors)
 
@@ -84,6 +92,7 @@ class Commander():
 
         self.set_motors(md)
 
+    # Get the position of the motors currently and publish to a topic
     def get_motor_positions(self):
 
         motor_poses = self.bot.get_motor_pos()
