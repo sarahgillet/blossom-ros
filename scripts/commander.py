@@ -4,6 +4,18 @@ from std_msgs.msg import Int32MultiArray
 from blossom_ros.msg import Motor, MotorArray
 from motor_driver import Robot 
 import json
+import tf2_ros
+from geometry_msgs.msg import TransformStamped
+from tf import transformations as tft
+
+import sys
+import os
+
+DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(os.path.join(DIR, '..', 'src'))
+
+
+import kinematics as k
 
 class Commander():
 
@@ -24,14 +36,44 @@ class Commander():
         self.motor_position_publisher = rospy.Publisher("blossom/motors/current", MotorArray, queue_size=1)
         rospy.init_node('motor_driver', anonymous=True)
 
+        # publish current height of robot
+        self.broadcaster = tf2_ros.TransformBroadcaster()
+
         self.rate = rospy.Rate(10) # 10hz
 
     # Keep the commander alive
     def main_loop(self):
 
         while not rospy.is_shutdown():
-            self.get_motor_positions()
+            motor_positions = self.get_motor_positions()
+            self.broadcaster.sendTransform(self.calculate_forward(motor_positions))
             self.rate.sleep()
+
+
+    def calculate_forward(self, motor_positions):
+        val = motor_positions.copy()
+        for m in val:
+            # Add offset to get clean value of motors
+            val[m] = val[m] - self.config[m]["offset"]
+        # update kinematics
+        z = k.calculate_height(list(val.values()))
+
+        # create transform to be send to the tf tree
+        st = TransformStamped()
+        st.header.stamp = rospy.Time.now()
+        st.header.frame_id = 'base_link'
+        st.child_frame_id = 'head_link'
+
+        st.transform.translation.x =  0
+        st.transform.translation.y = 0
+        st.transform.translation.z = z/100.0 # cm to m
+
+        q = tft.quaternion_from_euler(0, 0, 0)
+        st.transform.rotation.x = q[0]
+        st.transform.rotation.y = q[1]
+        st.transform.rotation.z = q[2]
+        st.transform.rotation.w = q[3]
+        return st
 
     # Get the list of motors (from the config)
     def get_motors(self):
@@ -63,26 +105,28 @@ class Commander():
 
     # Set the motor based on a dict
     def set_motors(self, move_dict):
-       
-       # Loop through the motors and set them to the goal position, check the limits
+        fw_kin_dict = move_dict.copy()
+        # Loop through the motors and set them to the goal position, check the limits
         for m in move_dict:
             val = move_dict[m]
             # Check limits:
             if val < self.config[m]["angle_limit"][0]:
                 move_dict[m] = self.config[m]["angle_limit"][0]
-                rospy.loginfo(rospy.get_caller_id() + "Motor ", m, " under limit")
+                rospy.loginfo(str(rospy.get_caller_id()) + "Motor "+str(m)+ " under limit")
             elif val > self.config[m]["angle_limit"][1]:
                 move_dict[m] = self.config[m]["angle_limit"][1]
-                rospy.loginfo(rospy.get_caller_id() + "Motor ", m, " over limit")
-
+                rospy.loginfo(rospy.get_caller_id() + "Motor "+ str(m)+ " over limit")
+            fw_kin_dict[m] = move_dict[m]
             # Check offset:
             move_dict[m] = move_dict[m] + self.config[m]["offset"]
-        
         # Send the command to the motors, no delay, don't wait
-        self.bot.goto_position(move_dict, 0, False)
+        self.bot.goto_position(move_dict, 1, False)
+        # update kinematics
+        print(k.calculate_height(list(fw_kin_dict.values())))
+        
 
     # Called on Msg, create a dict and send it to the motors:
-    def motor_callback(self, data):
+    def motor_callback(self, data): 
         rospy.loginfo(rospy.get_caller_id() + "I heard %s", data.motors)
 
         md = {}
@@ -104,6 +148,7 @@ class Commander():
             motor_array.motors.append(mv)
 
         self.motor_position_publisher.publish(motor_array)
+        return motor_poses
         
 
 if __name__ == "__main__":
