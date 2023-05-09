@@ -6,6 +6,5 @@ __pycache__
 env
 
 # These are legacy material used to test interpolator. Will not go in the final repo
-src
 config.py
 start_just_robot.py
