@@ -19,9 +19,11 @@ import kinematics as k
 
 class Commander():
 
-    def __init__(self, _config_file, _name):
+    def __init__(self, _name):
 
         # Create the robot based on the config file (handled motor_driver.py)
+        rospy.init_node('motor_driver', anonymous=True)
+        _config_file = rospy.get_param('~path_to_config', '../config/config.json')
         self.bot = Robot(_config_file, name=_name)
         self.bot_config_file = {}
         self.config = {}
@@ -34,7 +36,7 @@ class Commander():
         # ROS
         rospy.Subscriber("blossom/motors/goal", MotorArray, self.motor_callback)
         self.motor_position_publisher = rospy.Publisher("blossom/motors/current", MotorArray, queue_size=1)
-        rospy.init_node('motor_driver', anonymous=True)
+        
 
         # publish current height of robot
         self.broadcaster = tf2_ros.TransformBroadcaster()
@@ -152,8 +154,7 @@ class Commander():
         
 
 if __name__ == "__main__":
-
-    c = Commander("config.json", "woody")
+    c = Commander("cherry")
     c.main_loop()
 
 

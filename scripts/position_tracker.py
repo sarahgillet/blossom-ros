@@ -61,11 +61,11 @@ class KeepTrackGaze():
 class ExternalPoseTracker:
     def __init__(self):
         '''body_id is used to specify the marker to follow, defaults to the first person if not specified'''
-        rospy.init_node("face_tracker")
-
+        rospy.init_node("pose_tracker")
+        
         self.angles = {"base": 0, "head": 0}
         self.body_id = None
-        self.mode = 'follow'
+        self.mode = 'follow_person'
         #self.velocities = TR_DEFAULT_VEL
 
         self.tfBuffer = tf2_ros.Buffer()
@@ -74,6 +74,7 @@ class ExternalPoseTracker:
     
         # listen for kinect tracking data
         rospy.Subscriber("/kinect/body_tracking_data", MarkerArray, self.callback_body_tracking, queue_size=2)
+        #rospy.Subscriber("/k", MarkerArray, self.callback_body_tracking, queue_size=2)
         # listen to externally set pose of object
         rospy.Subscriber("/object_pose_tracker", PointStamped, self.callback_object_tracking, queue_size=2)
         # listen for trajectory mode, latched!
@@ -87,13 +88,14 @@ class ExternalPoseTracker:
         
         self.gaze_pt = PointStamped()
         self.gaze_pt.header = None
+        self.static_offset = 0.12 #cm for distance between eyes and head plate, distance bottom and motor
         rospy.spin()
 
     def callback_trajectory_mode(self, mode):
         self.mode = mode.data
         # self.mode = 'follow'
         # reset the currently tracked person
-        if self.mode not in ['follow_person', 'look_between', 'look_at_object']:
+        if self.mode not in ['follow_person', 'look_between', 'follow_person_base_only']:
             self.body_id = None
 
    
@@ -123,6 +125,8 @@ class ExternalPoseTracker:
         self.body_id = msg.data
 
     def callback_object_tracking(self, msg):
+        if self.mode not in ['look_at_object', 'track_object']:
+            return
         # set object point from msg
         # initate motion track position
         self.gaze_pt.header = msg.header
@@ -135,7 +139,7 @@ class ExternalPoseTracker:
 
     def callback_body_tracking(self, msg):
         # only run in follow mode
-        if self.mode not in ['follow_person', 'look_between', ]:
+        if self.mode not in ['follow_person', 'look_between', 'follow_person_base_only']:
             return
 
         # sort markers by person
@@ -206,26 +210,39 @@ class ExternalPoseTracker:
         # track the face (motion trajectory)
         self.motion_track_position(self.gaze_pt)
 
-        if self.gaze_phase == 2: #aversion
-            self.gaze_pt.point.x += self.offset
-            self.gaze_pt.point.y += abs(self.offset)
+        # if self.gaze_phase == 2: #aversion
+        #     self.gaze_pt.point.x += self.offset
+        #     self.gaze_pt.point.y += abs(self.offset)
             # self.gaze_pt.point.z += self.offset
 
         self.gaze_pt.header.stamp = rospy.Time.now()
-        self.gaze_pub.publish(self.gaze_pt)
+        #self.gaze_pub.publish(self.gaze_pt)
 
         # re-publish tracked point
         head_marker.type = 1
         head_marker.color.r = 1.0
         head_marker.color.b = 0
         head_marker.color.g = 0
-        self.gaze_marker_pub.publish(head_marker)
+        #self.gaze_marker_pub.publish(head_marker)
 
+
+    def getDirectionAngle(self, a, b):
+        if a == 0:
+            return math.pi/2*(-1 if b < 0 else 1)
+        theta = math.atan(b/a)
+        if a < 0:
+            theta = theta+math.pi
+        elif b < 0:
+            theta = theta+2*math.pi
+        if theta > math.pi:
+            theta = theta - 2*math.pi
+        return theta
 
     def motion_track_position(self, point_msg):
         ''' track a position in space
             TODO: some smoothing (kalman filter?)'''
 
+        #print(point_msg.point)
         # transform target point into the base_link frame
         target_frame = "base_link"
         theta_z = 0
@@ -233,16 +250,24 @@ class ExternalPoseTracker:
             trans = self.tfBuffer.lookup_transform(target_frame, point_msg.header.frame_id, rospy.Time.now(), rospy.Duration(0.1))
             # in the base_link frame
             pt = tf2_geometry_msgs.do_transform_point(point_msg, trans)
+
             # check if x-distance is negative, if so, give up
             # if pt.point.x <= 0:
             #     rospy.logwarn("x value should not be negative")
             # else:
+            #print(point_msg.point.x, pt.point.x)
+            #print(point_msg.point.y, pt.point.y)
+            #print(point_msg.point.z, pt.point.z)
             pt.header.frame_id = target_frame
             # compute the angle needed to move 
-            theta_z = math.atan(pt.point.y/pt.point.x)
-            if pt.point.x < 0:
-                theta_z = math.pi - theta_z
-            print(theta_z)
+            #if pt.point.x != 0:
+            theta_z = self.getDirectionAngle(pt.point.x, pt.point.y)  #math.atan(pt.point.y/pt.point.x)
+            #print(theta_old_z, theta_z)
+            #else:
+            #    theta_z = math.pi/2 
+            # if pt.point.x < 0:
+            #     theta_z = math.pi - theta_z
+            #print(theta_z)
             # z-angle offset clipped to [-pi/2, pi/2]
             self.angles['base'] = max(-math.pi/2, min(theta_z, math.pi/2))
               
@@ -267,9 +292,9 @@ class ExternalPoseTracker:
             x, y = self.rotate_point(hpt.point.x, hpt.point.y, -theta_z)
             #print(self.rotate_point(hpt.point.x, hpt.point.y, -theta_z))
             #y = hpt.point.y
-            z = hpt.point.z
-            print(x,y,z, point_msg.point)
-            th_y = math.atan(z/x)
+            z = hpt.point.z - self.static_offset
+            print(x,y,z)
+            th_y = self.getDirectionAngle(x, z)
             #print(th_y, math.pi - th_y if abs(math.pi - th_y) < math.pi/2 else th_y-math.pi)
             #if x < 0:
             #    th_y = math.pi - th_y if abs(math.pi - th_y) < math.pi/2 else th_y-math.pi
@@ -286,8 +311,10 @@ class ExternalPoseTracker:
         z_clipped = max(clip_at[0], min(pt.point.z, clip_at[1]))
         m1 = interp1d(interpol_at, [30, 0])
         z = m1(z_clipped)
-        motor_pos = k.get_motor_pos([theta_z, th_y, 0, z])
-        print(theta_z, th_y, z)
+        if self.mode == 'follow_person_base_only':
+            th_y = 0
+        motor_pos = k.get_motor_pos([-theta_z, th_y, 0, z])
+        #print(theta_z, th_y, z)
         #motor_pos = k.get_motor_pos([0, 0, 0, 20])
         m_array = MotorArray()
         i = 0

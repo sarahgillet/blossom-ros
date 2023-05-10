@@ -2,17 +2,14 @@
 
   <param name="enable_statistics" value="true" />
     
- 
-  <!-- robot -->
-   <!-- node pkg="blossom_ros" name="blossom_driver" type="commander.py" output="screen" / -->
 
   <!-- camera extrinsics -->
   <node pkg="blossom_ros" name="static_transform" type="publish_static_transforms.py" output="screen" />
 
-  <node pkg="blossom_ros" name="blossom_object_tracker" type="object_tracker.py" output="screen" />
+  <node pkg="blossom_ros" name="blossom_position_tracker" type="position_tracker.py" output="screen" />
 
   <!-- kinect camera -->
-  <!-- include file="$(find azure_kinect_ros_driver)/launch/driver.launch" ns="kinect">
+  <include file="$(find azure_kinect_ros_driver)/launch/driver.launch" ns="kinect">
     <arg name="depth_enabled" value="true" />
     <arg name="color_resolution" value="720P" />
     <arg name="body_tracking_enabled" value="true" />
@@ -20,6 +17,6 @@
     <arg name="rgb_point_cloud" value="false" />
     <arg name="fps" value="15" />
     <arg name="tf_prefix" value="kinect_" />
-  </include -->
+  </include>
 
 </launch>

@@ -4,7 +4,7 @@
 #import yaml
 import rospy
 import sys
-#import math
+import math
 import tf2_ros
 import numpy as np
 from geometry_msgs.msg import TransformStamped
@@ -25,15 +25,16 @@ class PublishStaticTransforms(object):
         st = TransformStamped()
         st.header.stamp = rospy.Time.now()
         st.header.frame_id = 'base_link'
+        #st.header.child_frame_id = 'kinect_camera_base'
         st.child_frame_id = 'kinect_camera_base'
 
-        st.transform.translation.x =  -0.25 #-0.092075
-        st.transform.translation.y = 0 #0.145821
+        st.transform.translation.x = -0.15 # -0.25 #-0.092075
+        st.transform.translation.y = -0.05 #0.145821
         # this value has been manually tweaked
-        st.transform.translation.z = 0.25
+        st.transform.translation.z = 0.548 #0.6
 
         # 10 degrees -> 0.17 rad
-        q = tft.quaternion_from_euler(0, 0, 0)
+        q = tft.quaternion_from_euler(0, 0,0)
         st.transform.rotation.x = q[0]
         st.transform.rotation.y = q[1]
         st.transform.rotation.z = q[2]

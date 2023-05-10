@@ -1,0 +1,6 @@
+  <launch>
+    <!-- robot -->
+    <node pkg="blossom_ros" name="blossom_driver" type="commander.py" output="screen">
+        <param name="path_to_config" value="$(find blossom_ros)/config/config_cherry.json"/>  
+    </node>
+  </launch>
