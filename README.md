@@ -23,6 +23,7 @@ in the launch_blossom.launch file one can change the config file for the specifi
 ## Sending object positions to Blossom so it can look at them
 See ['test_object_person_tracking.py'](https://github.com/sarahgillet/blossom-ros/blob/main/scripts/test_object_person_tracking.py) for example code on how to send object positions and how to change the mode of the trajectory/position tracker. More information on the different modes can be found below.
 
+
 ### Defining new object positions
 The coordinate system of 'base_link' is defined as follows: 
 - x (red): Forward from the robot's 0 position on the base
@@ -30,6 +31,6 @@ The coordinate system of 'base_link' is defined as follows:
 - z (blue): Pointing upward to the robot's head
 The 'base_link' is located in the very bottom plate of the robot.
 
-<img src="https://github.com/sarahgillet/blossom-ros/assets/65712056/3a3086cb-48c7-427c-aaf3-1ef878b2bd22" width="300"/>
+<img src="https://github.com/sarahgillet/blossom-ros/assets/65712056/853bd816-d4fc-4e44-840f-55fcb7be5599" width="300"/>
 
 To define new objects, you can either define your object positions in the coordinate system of the 'base_link' or define a new coordinate system and publish the transform between 'base_link' and your new coodinate system.
