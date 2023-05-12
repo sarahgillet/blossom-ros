@@ -9,7 +9,7 @@ python3 commander.py
 ## Running the example sequence publisher:
 python3 test_pub.py
 
-## Running the position tracker
+# Running the position tracker
 rosrun blossom_ros position_tracker.py
 
 For more convenient starting of a kinect azure camera and the object tracker use:
@@ -34,3 +34,13 @@ The 'base_link' is located in the very bottom plate of the robot.
 <img src="https://github.com/sarahgillet/blossom-ros/assets/65712056/853bd816-d4fc-4e44-840f-55fcb7be5599" width="300"/>
 
 To define new objects, you can either define your object positions in the coordinate system of the 'base_link' or define a new coordinate system and publish the transform between 'base_link' and your new coodinate system.
+
+## Modes of the position tracker
+Currently the position tracker has five allowed different modes: 'follow_person', 'look_between', 'follow_person_base_only', 'look_at_object', 'track_object'.
+- 'follow_person': moves base and head to 'look' at the person (input: kinect body tracking)
+- 'look_between': Not yet implemented, does the same as 'follow_person'
+- 'follow_person_base_only': moves base to orient toward the person (input: kinect body tracking)
+- 'look_at_object': moves base and head to orient toward the given position (input: PositionStamped on topic /object_pose_tracker)
+- 'track_object': No special implementation yet, does the same as 'look_at_object'
+
+The mode can be changed by sending a std_msgs/String with the mode name to the '/mode' topic.
