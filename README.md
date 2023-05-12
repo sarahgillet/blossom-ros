@@ -1,5 +1,7 @@
 # blossom-ros
 
+Note: We tested the ROS implementation on Ubuntu20 and with ROS noetic.
+
 ## Run roscore:
 roscore 
 
