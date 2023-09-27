@@ -154,6 +154,7 @@ class ExternalPoseTracker:
         body_ids = list(markers_by.keys())
         if len(body_ids) <= 0:
             # TODO: some action when there is no one to follow
+            self.idle_animation(1)
             return
 
         # keep tracking the current person
@@ -238,6 +239,27 @@ class ExternalPoseTracker:
             theta = theta - 2*math.pi
         return theta
 
+    def idle_animation(self, side):
+        ''' idle animation for when robot is not looking at a person
+         head tilts right and left 
+         side: -1 for left, 1 for right'''
+        
+        motor_pos = [side * 3, side * (-1) * 3]
+        #z = hpt.point.z
+        motor_names = ["tower_1", "tower_2"]
+        m_array = MotorArray()
+    
+        for i,m in enumerate(motor_names):
+            mv = Motor()
+            mv.name = m
+            mv.position = motor_pos[i]
+            mv.time_ms = 1
+            m_array.motors.append(mv)
+
+        # Publish the array
+        self.motor_pub.publish(m_array)
+
+
     def motion_track_position(self, point_msg):
         ''' track a position in space
             TODO: some smoothing (kalman filter?)'''
@@ -255,9 +277,6 @@ class ExternalPoseTracker:
             # if pt.point.x <= 0:
             #     rospy.logwarn("x value should not be negative")
             # else:
-            #print(point_msg.point.x, pt.point.x)
-            #print(point_msg.point.y, pt.point.y)
-            #print(point_msg.point.z, pt.point.z)
             pt.header.frame_id = target_frame
             # compute the angle needed to move 
             #if pt.point.x != 0:
@@ -329,7 +348,7 @@ class ExternalPoseTracker:
         # Publish the array
         #print("Don't publish right now for safety, goal motor pose: ", str(m_array))
         self.motor_pub.publish(m_array)
-
+        
 
 def main():
     try:
