@@ -71,7 +71,9 @@ class ExternalPoseTracker:
         self.tfBuffer = tf2_ros.Buffer()
         self.listener = tf2_ros.TransformListener(self.tfBuffer)
 
-    
+        # for head shaking idle animation
+        self.rate = rospy.Rate(1) # 10hz
+
         # listen for kinect tracking data
         rospy.Subscriber("/kinect/body_tracking_data", MarkerArray, self.callback_body_tracking, queue_size=2)
         #rospy.Subscriber("/k", MarkerArray, self.callback_body_tracking, queue_size=2)
@@ -154,7 +156,9 @@ class ExternalPoseTracker:
         body_ids = list(markers_by.keys())
         if len(body_ids) <= 0:
             # TODO: some action when there is no one to follow
-            self.idle_animation(1)
+            #ear wiggle
+            self.ear_move(80)
+            self.ear_move(120)
             return
 
         # keep tracking the current person
@@ -181,6 +185,7 @@ class ExternalPoseTracker:
                 self.body_id_tracking[self.body_id] = KeepTrackGaze()
             if self.body_id in self.body_id_tracking:
                 self.body_id_tracking[self.body_id].start_gazing()
+                
         elif self.mode == 'look_between':
             # if person is still there, decide if we need to look at someone else 
             # (if there is someone else)
@@ -196,6 +201,7 @@ class ExternalPoseTracker:
                         if not self.body_id in self.body_id_tracking:
                             self.body_id_tracking[self.body_id] = KeepTrackGaze()
                         self.body_id_tracking[self.body_id].start_gazing()
+                        
 
         #rospy.logerr(self.body_id)
         # set eye gaze
@@ -239,14 +245,11 @@ class ExternalPoseTracker:
             theta = theta - 2*math.pi
         return theta
 
-    def idle_animation(self, side):
+    def ear_move(self, tilt):
         ''' idle animation for when robot is not looking at a person
-         head tilts right and left 
-         side: -1 for left, 1 for right'''
-        
-        motor_pos = [side * 3, side * (-1) * 3]
-        #z = hpt.point.z
-        motor_names = ["tower_1", "tower_2"]
+         ears wiggle '''
+        motor_pos = [tilt]
+        motor_names = ["ears"]
         m_array = MotorArray()
     
         for i,m in enumerate(motor_names):
@@ -258,7 +261,23 @@ class ExternalPoseTracker:
 
         # Publish the array
         self.motor_pub.publish(m_array)
+        self.rate.sleep()
 
+    def reset_motors(self):
+        motor_pos = [0,0,0,0,80]
+        motor_names = ["tower_1", "tower_2", "tower_3", "base", "ears"]
+        m_array = MotorArray()
+    
+        for i,m in enumerate(motor_names):
+            mv = Motor()
+            mv.name = m
+            mv.position = motor_pos[i]
+            mv.time_ms = 1
+            m_array.motors.append(mv)
+
+        # Publish the array
+        self.motor_pub.publish(m_array)
+        #self.rate.sleep()
 
     def motion_track_position(self, point_msg):
         ''' track a position in space
@@ -324,7 +343,7 @@ class ExternalPoseTracker:
             rospy.logwarn("Failed to transform point in {} frame to {}:\n{}".format(point_msg.header.frame_id, target_frame, e))
 
         #z = hpt.point.z
-        motor_names = ["tower_1", "tower_2", "tower_3", "base"]
+        motor_names = ["tower_1", "tower_2", "tower_3", "base", "ears"]
         clip_at = [0, 0.5]
         interpol_at = [0, 0.5]
         z_clipped = max(clip_at[0], min(pt.point.z, clip_at[1]))
@@ -333,6 +352,7 @@ class ExternalPoseTracker:
         if self.mode == 'follow_person_base_only':
             th_y = 0
         motor_pos = k.get_motor_pos([-theta_z, th_y, 0, z])
+        motor_pos = np.append(motor_pos, 140)
         #print(theta_z, th_y, z)
         #motor_pos = k.get_motor_pos([0, 0, 0, 20])
         m_array = MotorArray()
@@ -348,6 +368,7 @@ class ExternalPoseTracker:
         # Publish the array
         #print("Don't publish right now for safety, goal motor pose: ", str(m_array))
         self.motor_pub.publish(m_array)
+
         
 
 def main():
